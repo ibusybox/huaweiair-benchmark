@@ -1,42 +1,181 @@
-#!/usr/bin/env python
-
 # -*- coding: utf-8 -*-
+#!/usr/bin/env python
 
 import uuid
 import sys
 import logging
 import time
 import argparse
+import datetime
+import json
 import requests
 
 logger = logging.getLogger('huaweiair-benchmark')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
+STAT_INTERVAL = 100
 
-def call_query_orders(host, times=None, interval=None, userid=None):
+def call_query_orders(host, times=None, interval=None, userid="uid0@email.com"):
     url = "%s/huaweiair/v1/orders" % host
-    userid = uuid.uuid4().hex if userid is None else userid
-    times = sys.maxint if times is None else int(times)
-    interval = 0.1 if interval is None else float(interval)
+    userid = "uid0@email.com" if userid is None else userid
+    times = sys.maxint if times is None or int(time) == 0 else int(times)
+    interval = 0 if interval is None else float(interval)
     playload = {'userId': userid}
     
     logger.info('start query orders with host: %s, times: %s, interval: %s, userid: %s', host, times, interval, userid)
     n = 0
+    success = 0
+    failure = 0
     while n < times:
         try:
             response = requests.get(url, params=playload)
-            logger.debug("query orders by url %s at times %s, got response %s", url, n, response.status_code)
+            if response.status_code == 200:
+                success = success + 1
+            else:
+                failure = failure + 1
+            logger.debug(
+                "query order by url %s at times %s, got response %s", url, n, response.status_code)
         except Exception as e:
-            logger.error('query orders by url %s at times %s with exception %s', url, n, e.message)
-        time.sleep(interval)
+            logger.error(
+                'query order by url %s at times %s with exception %s', url, n, e.message)
+            failure = failure + 1
         n = n + 1
+        if n % STAT_INTERVAL == 0:
+            logger.info(
+                '[query order stat] total rquests: %s, success: %s, failure %s', n, success, failure)
+        if interval != 0:
+            time.sleep(interval)
 
-def query_orders(args):
+
+def call_create_order(host, times=None, interval=None, userid="uid0@email.com"):
+    url = "%s/huaweiair/v1/orders" % host
+    userid = "uid0@email.com" if userid is None else userid
+    times = sys.maxint if times is None or int(time) == 0 else int(times)
+    interval = 0 if interval is None else float(interval)
+
+    toDate = datetime.datetime.now()
+    toArrivalDate = toDate + datetime.timedelta(hours=2)
+    retDate = toDate + datetime.timedelta(days=1)
+    retArrivalDate = retDate + datetime.timedelta(hours=2)
+    playload = {
+        "fromAirPortName": u'北京 Beijing',
+        "oneWayFlight": False,
+        "retFlightClass": 1,
+        "retFlightId": "9c0ca371-184e-47e4-b083-e9af4d7e1f17",
+        "retFlightPrice": 200,
+        "retFlightSegId": "AA482",
+        "retScheduledArrivalTime": retDate.strftime("%Y-%m-%d %H:%M:%S"),
+        "retScheduledDepartureTime": retArrivalDate.strftime("%Y-%m-%d %H:%M:%S"),
+        "toAirPortName": u'上海 Shanghai',
+        "toFlightClass": 1,
+        "toFlightId": "76f3334e-486c-4be6-8fd6-d4fe9ee1a3c1",
+        "toFlightPrice": 200,
+        "toFlightSegId": "AA467",
+        "toScheduledArrivalTime": toDate.strftime("%Y-%m-%d %H:%M:%S"),
+        "toScheduledDepartureTime": toArrivalDate.strftime("%Y-%m-%d %H:%M:%S"),
+        "userId": "uid0@email.com"
+    }
+
+    logger.info('start create order with host: %s, times: %s, interval: %s, userid: %s',
+                host, times, interval, userid)
+    n = 0
+    success = 0
+    failure = 0
+    headers = {'Content-Type': 'Application/json'}
+    while n < times:
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(playload))
+            if response.status_code == 200:
+                success = success + 1
+            else:
+                failure = failure + 1
+            logger.debug(
+                "create order by url %s at times %s, got response %s", url, n, response.status_code)
+        except Exception as e:
+            logger.error(
+                'create order by url %s at times %s with exception %s', url, n, e.message)
+            failure = failure + 1
+
+        n = n + 1
+        if n % STAT_INTERVAL == 0:
+            logger.info(
+                '[create order stat] total rquests: %s, success: %s, failure %s', n, success, failure)
+        if interval != 0:
+            time.sleep(interval)
+
+
+def call_pay_order(host, times=None, interval=None, userid="uid0@email.com"):
+    url = "%s/huaweiair/v1/orders/%s" % (host, uuid.uuid4().hex)
+    userid = "uid0@email.com" if userid is None else userid
+    times = sys.maxint if times is None or int(time) == 0 else int(times)
+    interval = 0 if interval is None else float(interval)
+
+    playload = {'action': 1}
+    logger.info('start pay order with host: %s, times: %s, interval: %s, userid: %s',
+                host, times, interval, userid)
+    n = 0
+    success = 0
+    failure = 0
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    while n < times:
+        try:
+            response = requests.put(
+                url, headers=headers, data=playload)
+            if response.status_code == 200:
+                success = success + 1
+            else:
+                failure = failure + 1
+            logger.debug(
+                "pay order by url %s at times %s, got response %s", url, n, response.status_code)
+        except Exception as e:
+            logger.error(
+                'pay order by url %s at times %s with exception %s', url, n, e.message)
+            failure = failure + 1
+        n = n + 1
+        if n % STAT_INTERVAL == 0:
+            logger.info(
+                '[pay order stat] total rquests: %s, success: %s, failure %s', n, success, failure)
+        if interval != 0:
+            time.sleep(interval)
+
+
+def call_delete_order(host, times=None, interval=None, userid="uid0@email.com"):
+    url = "%s/huaweiair/v1/orders/%s" % (host, uuid.uuid4().hex)
+    userid = "uid0@email.com" if userid is None else userid
+    times = sys.maxint if times is None or int(time) == 0 else int(times)
+    interval = 0 if interval is None else float(interval)
+    
+    logger.info('start delete order with host: %s, times: %s, interval: %s, userid: %s',
+                host, times, interval, userid)
+    n = 0
+    success = 0
+    failure = 0
+    while n < times:
+        try:
+            response = requests.delete(url)
+            if response.status_code == 200:
+                success = success + 1
+            else:
+                failure = failure + 1
+            logger.debug(
+                "delete order by url %s at times %s, got response %s", url, n, response.status_code)
+        except Exception as e:
+            logger.error(
+                'delete order by url %s at times %s with exception %s', url, n, e.message)
+            failure = failure + 1
+        n = n + 1
+        if n % STAT_INTERVAL == 0:
+            logger.info(
+                '[delete order stat] total rquests: %s, success: %s, failure %s', n, success, failure)
+        if interval != 0:
+            time.sleep(interval)
+
+def create_arg_parser():
     parser = argparse.ArgumentParser(prog="huaweiair-benchmark")
     parser.add_argument('-s', '--host', dest='host',
                         help='host address, e.g: http://ip:port')
@@ -45,20 +184,33 @@ def query_orders(args):
     parser.add_argument('-i', '--interval', dest='interval',
                         help='call intervals, 1 means 1s, 0.1 means 100 ms')
     parser.add_argument('-u', '--userid', dest='userid', help='user id')
-    know_args = parser.parse_args(args)
-    if know_args.host is None:
-        parser.print_help()
-        return
-
-    call_query_orders(know_args.host, know_args.times, know_args.interval, know_args.userid)
+    return parser
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         logger.error('Usage: %s get-order|pay-order|create-order|delete-order [options]', sys.argv[0])
         sys.exit(1)
+    
     command = sys.argv[1]
     args = sys.argv[2:]
+    parser = create_arg_parser()
+    know_args = parser.parse_args(args)
+
+    if know_args.host is None:
+        parser.print_help()
+        sys.exit(1)
+
     if command == "get-order":
-        query_orders(args)
+        call_query_orders(know_args.host, know_args.times,
+                        know_args.interval, know_args.userid)
+    elif command == "create-order":
+        call_create_order(know_args.host, know_args.times,
+                      know_args.interval, know_args.userid)
+    elif command == "pay-order":
+        call_pay_order(know_args.host, know_args.times,
+                          know_args.interval, know_args.userid)
+    elif command == "delete-order":
+        call_delete_order(know_args.host, know_args.times,
+                          know_args.interval, know_args.userid)
     else:
         logger.error('unknow command: %s', command)
