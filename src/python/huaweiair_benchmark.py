@@ -19,6 +19,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 STAT_INTERVAL = 100
+SRC_MICROSERVICE = {'x-ces-src-microservice': 'gateway'}
 
 def call_query_orders(host, times=None, interval=None, userid="uid0@email.com"):
     url = "%s/huaweiair/v1/orders" % host
@@ -28,12 +29,13 @@ def call_query_orders(host, times=None, interval=None, userid="uid0@email.com"):
     playload = {'userId': userid}
     
     logger.info('start query orders with host: %s, times: %s, interval: %s, userid: %s', host, times, interval, userid)
+    headers = {'x-cse-context': json.dumps(SRC_MICROSERVICE)}
     n = 0
     success = 0
     failure = 0
     while n < times:
         try:
-            response = requests.get(url, params=playload)
+            response = requests.get(url, headers=headers, params=playload)
             if response.status_code == 200:
                 success = success + 1
             else:
@@ -86,7 +88,7 @@ def call_create_order(host, times=None, interval=None, userid="uid0@email.com"):
     n = 0
     success = 0
     failure = 0
-    headers = {'Content-Type': 'Application/json'}
+    headers = {'Content-Type': 'Application/json', 'x-cse-context': json.dumps(SRC_MICROSERVICE)}
     while n < times:
         try:
             response = requests.post(url, headers=headers, data=json.dumps(playload))
@@ -121,7 +123,7 @@ def call_pay_order(host, times=None, interval=None, userid="uid0@email.com"):
     n = 0
     success = 0
     failure = 0
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    headers = {'Content-Type': 'application/x-www-form-urlencoded', 'x-cse-context': json.dumps(SRC_MICROSERVICE)}
     while n < times:
         try:
             response = requests.put(
@@ -152,12 +154,14 @@ def call_delete_order(host, times=None, interval=None, userid="uid0@email.com"):
     
     logger.info('start delete order with host: %s, times: %s, interval: %s, userid: %s',
                 host, times, interval, userid)
+    
+    headers = {'x-cse-context': json.dumps(SRC_MICROSERVICE)}
     n = 0
     success = 0
     failure = 0
     while n < times:
         try:
-            response = requests.delete(url)
+            response = requests.delete(url, headers=headers)
             if response.status_code == 200:
                 success = success + 1
             else:
